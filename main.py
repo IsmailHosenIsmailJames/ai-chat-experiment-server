@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import vertexai
 from vertexai.generative_models import GenerativeModel, Content, Part, Content, Part
 import google.auth
@@ -57,6 +57,8 @@ class ChatHistoryItem(BaseModel):
 class ChatRequest(BaseModel):
     prompt: str
     history: Optional[List[ChatHistoryItem]] = None
+    system_prompt: Optional[str] = None
+    user_info: Optional[Dict[str, Any]] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -76,10 +78,25 @@ async def get_gemini_response(request: ChatRequest):
     Receives a prompt and chat history, and forwards it to the Google Gemini API.
     """
     try:
-        # Load the generative model
-        model = GenerativeModel(MODEL_NAME)
+        # Construct the system prompt from system_prompt and user_info
+        system_instructions = []
+        if request.system_prompt:
+            system_instructions.append(request.system_prompt)
+
+        if request.user_info:
+            user_info_str = "\n".join([f"- {key}: {value}" for key, value in request.user_info.items()])
+            system_instructions.append(f"**User Information:**\n{user_info_str}")
+
+        full_system_prompt = "\n\n".join(system_instructions)
+
+        # Load the generative model with the combined system prompt
+        if full_system_prompt:
+            model = GenerativeModel(MODEL_NAME, system_instruction=[full_system_prompt])
+        else:
+            model = GenerativeModel(MODEL_NAME)
 
         # Convert history to Content objects
+
         history_content = []
         if request.history:
             for item in request.history:
