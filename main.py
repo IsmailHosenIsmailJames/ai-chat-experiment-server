@@ -56,6 +56,7 @@ class ChatHistoryItem(BaseModel):
 
 class ChatRequest(BaseModel):
     prompt: str
+    model: Optional[str] = None
     history: Optional[List[ChatHistoryItem]] = None
     system_prompt: Optional[str] = None
     user_info: Optional[Dict[str, Any]] = None
@@ -94,7 +95,13 @@ async def get_gemini_response(request: ChatRequest):
             model = GenerativeModel(MODEL_NAME, system_instruction=[full_system_prompt])
         else:
             model = GenerativeModel(MODEL_NAME)
-
+        # Determine which model to use for this request
+        model_name = request.model if request.model is not None else MODEL_NAME
+        # check is it is a valid model
+        if(available_models.count(model_name) == 0):
+            model_name = MODEL_NAME
+        # Load the generative model
+        model = GenerativeModel(model_name)
         # Convert history to Content objects
 
         history_content = []
